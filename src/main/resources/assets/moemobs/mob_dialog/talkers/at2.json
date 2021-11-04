@@ -1,0 +1,9 @@
+{
+  "name": "entity.moemobs.at2",
+  "dialogs": {
+    "default": {
+      "render": "static",
+      "data": { "resource": "moemobs:textures/mob_dialog/at2/at2.png", "scale": "1.6", "width": "110", "height": "98" }
+    }
+  }
+}

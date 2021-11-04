@@ -1,0 +1,234 @@
+package teammoemobs.moemobs.api;
+
+import com.google.common.collect.Lists;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fmllegacy.network.PacketDistributor;
+import org.apache.commons.lang3.Validate;
+import teammoemobs.moemobs.MoeMobs;
+import teammoemobs.moemobs.api.dialog.*;
+import teammoemobs.moemobs.api.entity.NormalTalker;
+import teammoemobs.moemobs.api.entity.TalkableMob;
+import teammoemobs.moemobs.api.dialog.scene.ISceneInstance;
+import teammoemobs.moemobs.client.screen.MoeMobDialogScreen;
+import teammoemobs.moemobs.message.OpenDialogMessage;
+import teammoemobs.moemobs.register.ContentRegistry;
+
+import java.util.*;
+
+public class TalkableController implements NormalTalker {
+	private ISceneInstance sceneInstance;
+	private final Set<IDialogChangeListener> listeners = new HashSet<>();
+	private Map<String, Boolean> conditionsMet;
+
+	protected final TalkableMob talkableMob;
+
+	public TalkableController(TalkableMob talkableMob)
+	{
+		this.talkableMob = talkableMob;
+	}
+
+	public void activateButton(final IDialogButton button)
+	{
+		if(talkableMob instanceof LivingEntity) {
+			// Make sure this node actually contains the button
+			Validate.isTrue(this.sceneInstance.getNode().getButtons().contains(button));
+
+			if (((LivingEntity) talkableMob).level.isClientSide()) {
+				//Networking.sendPacketToServer(new PacketActivateButton(button.getLabel()));
+			}
+
+			if (!this.conditionsMet(button)) {
+				return;
+			}
+
+			if (!((LivingEntity) talkableMob).level.isClientSide()) {
+				//Networking.sendPacketToPlayer(new PacketActivateButton(button.getLabel()), (EntityPlayerMP) this.getEntity());
+
+				final Collection<IDialogAction> actions = button.getActions();
+
+				for (final IDialogAction action : actions) {
+					action.performAction(this);
+				}
+			}
+		}
+	}
+
+	public boolean conditionsMet(IDialogButton button)
+	{
+		if(talkableMob instanceof LivingEntity) {
+			if (((LivingEntity) talkableMob).level.isClientSide()) {
+				if (this.sceneInstance == null) {
+					throw new NullPointerException("Scene instance is null in activateButton()");
+				}
+
+				if (!this.sceneInstance.getConditionsMet().containsKey(button.getLabel())) {
+					return false;
+				}
+
+				return this.sceneInstance.getConditionsMet().get(button.getLabel());
+			}
+		}
+
+		boolean flag = false;
+
+		for (IDialogCondition condition : button.getOrConditions())
+		{
+			if (condition.isMet(this))
+			{
+				flag = true;
+				break;
+			}
+		}
+
+		for (IDialogCondition condition : button.getConditions())
+		{
+			if (!condition.isMet(this))
+			{
+				flag = false;
+				break;
+			}
+			else
+			{
+				flag = true;
+			}
+		}
+
+		return flag || (button.getConditions().isEmpty() && button.getOrConditions().isEmpty());
+	}
+
+	protected void updateListeners()
+	{
+		for (final IDialogChangeListener listener : this.listeners)
+		{
+			listener.onDialogChanged();
+		}
+	}
+
+	public void advance()
+	{
+		if (this.getLevel().isClientSide())
+		{
+			//Networking.sendPacketToServer(new PacketAdvance());
+		}
+		else
+		{
+			//Networking.sendPacketToPlayer(new PacketAdvance(), (EntityPlayerMP) this.getDialogPlayer());
+
+			if (this.sceneInstance != null)
+			{
+				this.sceneInstance.forwards();
+			}
+		}
+	}
+
+	public IDialogNode getCurrentNode()
+	{
+		return this.sceneInstance.getNode();
+	}
+
+	public IDialogLine getCurrentLine()
+	{
+		return this.sceneInstance.getLine();
+	}
+
+	public boolean isNodeFinished()
+	{
+		if (this.sceneInstance == null)
+		{
+			return false;
+		}
+
+		return this.sceneInstance.isDoneReading();
+	}
+
+	@Override
+	public IDialogScene getCurrentScene()
+	{
+		return this.sceneInstance != null ? this.sceneInstance.getScene() : null;
+	}
+
+	@Override
+	public ISceneInstance getCurrentSceneInstance()
+	{
+		return this.sceneInstance;
+	}
+
+
+	public void openScene(Player player, TalkableMob livingEntity, final ResourceLocation path, String startingNodeId)
+	{
+		final IDialogScene scene = ContentRegistry.getDialogManager().getScene(path).orElseThrow(() ->
+				new IllegalArgumentException("Couldn't getByte scene " + path));
+
+		scene.setStartingNode(startingNodeId);
+
+		if (player.level.isClientSide())
+		{
+			this.openSceneClient(player, livingEntity, path, scene, this.conditionsMet);
+		}
+		else
+		{
+			this.openSceneServer(player, livingEntity, path, scene);
+		}
+
+		this.updateListeners();
+	}
+	
+	@OnlyIn(Dist.CLIENT)
+	private void openSceneClient(Player player, TalkableMob livingEntity, final ResourceLocation res, final IDialogScene scene, Map<String, Boolean> conditionsMet)
+	{
+		this.sceneInstance = new SceneInstance(this, scene, conditionsMet);
+
+		Minecraft.getInstance().setScreen(new MoeMobDialogScreen(player, livingEntity));
+	}
+
+	private void openSceneServer(Player player, TalkableMob livingEntity, final ResourceLocation res, final IDialogScene scene)
+	{
+		this.sceneInstance = new SceneInstance(this, scene);
+
+		if(livingEntity instanceof LivingEntity) {
+			OpenDialogMessage message = new OpenDialogMessage(player.getId(), ((LivingEntity) livingEntity).getId(), res, scene.getStartingNode().getIdentifier(), this.sceneInstance.getConditionsMet());
+			MoeMobs.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player), message);
+		}
+	}
+
+	@Override
+	public void addListener(final IDialogChangeListener listener)
+	{
+		this.listeners.add(listener);
+	}
+
+
+	@Override
+	public ResourceLocation getTalker() {
+		return this.talkableMob.getTalker();
+	}
+
+	public TalkableMob getTalkableMob() {
+		return talkableMob;
+	}
+
+	public Level getLevel() {
+		return talkableMob.getTalkableController().getLevel();
+	}
+
+	public ISceneInstance getSceneInstance() {
+		return sceneInstance;
+	}
+
+	@Override
+	public void setConditionsMetData(Map<String, Boolean> conditionsMet)
+	{
+		this.conditionsMet = conditionsMet;
+
+		if (this.sceneInstance != null)
+		{
+			this.sceneInstance.setConditionsMet(conditionsMet);
+		}
+	}
+}
