@@ -1,19 +1,12 @@
 package teammoemobs.moemobs.client.screen;
 
 import com.google.common.collect.Lists;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
-import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.chat.NarratorChatListener;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.BookViewScreen;
-import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.BaseComponent;
-import net.minecraft.network.chat.CommonComponents;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -35,23 +28,23 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 
 	private final LinkedList<Object> buttons = Lists.newLinkedList();
 
-	private Button bottomTextBox, namePlate;
-
 	private double nextArrowAnim, prevTime;
 
 	private boolean canApplyNextAction = true;
 
 	private IDialogNode node;
 
-	private IDialogTalker speaker;
+	private IDialogTalker talker;
 
-	private IDialog slide;
+	private IDialog dialog;
 
 	private IDialogRenderer renderer;
 
 	private int currentScroll, maxScroll;
 
 	private ISceneInstance sceneInstance;
+
+	private ResourceLocation talkerTexture;
 
 	public MoeMobDialogScreen(Player player, TalkableMob living) {
 		super(NarratorChatListener.NO_TITLE);
@@ -69,21 +62,33 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 
 	@Override
 	public void render(PoseStack poseStack, int p_96563_, int p_96564_, float p_96565_) {
-		super.render(poseStack, p_96563_, p_96564_, p_96565_);
 		this.renderBackground(poseStack);
-		this.renderWife(poseStack);
+		int baseBoxSize = 350;
+		final boolean resize = this.width - 40 > baseBoxSize;
+
+		if (!resize) {
+			baseBoxSize = this.width - 40;
+		}
+
+		if (this.dialog != null && this.renderer != null) {
+			this.renderer.draw(this.dialog, poseStack, this.width, this.height, p_96563_, p_96564_, p_96565_);
+		}
+
+		final String name = I18n.get(this.talker.getUnlocalizedName());
+
+		final BaseComponent textComponent = new TranslatableComponent(name);
+
+		this.font.draw(poseStack, textComponent, resize ? (this.width / 2) - (baseBoxSize / 2) : 20,
+				this.height - (107), 0xFAEB95);
+
+		final IDialogLine line = this.controller.getCurrentLine();
+
+
+		this.font.draw(poseStack, line.getLocalizedBody(), resize ? (this.width / 2) - (baseBoxSize / 2) : 20, this.height - 85, 0xFFFFFF);
+
+		super.render(poseStack, p_96563_, p_96564_, p_96565_);
 	}
 
-	private void renderWife(PoseStack poseStack) {
-		Tesselator tesselator = Tesselator.getInstance();
-		BufferBuilder bufferbuilder = tesselator.getBuilder();
-		RenderSystem.setShader(GameRenderer::getPositionTexShader);
-		RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-		RenderSystem.setShaderTexture(0, BookViewScreen.BOOK_LOCATION);
-		bufferbuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-
-		tesselator.end();
-	}
 
 	@Override
 	public void onDialogChanged() {
@@ -126,7 +131,7 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 			{
 				if (this.controller.conditionsMet(btn))
 				{
-					Button button = new DialogButton(index, (this.width / 2) - (baseBoxSize / 2), this.height - 85 + (index * 20), btn,(button2) -> {
+					Button button = new DialogButton((this.width / 2) - (baseBoxSize / 2), this.height + 85 + (index * 20), 200, 20, btn, (button2) -> {
 						this.controller.activateButton(btn);
 					});
 
@@ -142,15 +147,6 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 
 		this.currentScroll = 0;
 
-		final IDialogLine line = this.controller.getCurrentLine();
-
-
-		this.bottomTextBox = this.addRenderableWidget(new Button(
-				this.buttons.size() + 1, resize ? (this.width / 2) - (baseBoxSize / 2) : 20, this.height - 85, baseBoxSize, line.getLocalizedBody(), (button) -> {
-
-		}));
-
-
 		this.maxScroll = Math.max(0, this.buttons.size() - 4);
 
 
@@ -163,60 +159,42 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 			this.bottomTextBox.setText(line.getLocalizedBody());
 		}*/
 
-		if (this.controller.getCurrentLine().getSpeaker().isPresent())
-		{
-			final ResourceLocation speakerPath = this.controller.getCurrentLine().getSpeaker().get();
+		if (this.controller.getCurrentLine().getSpeaker().isPresent()) {
+			final ResourceLocation talkerPath = this.controller.getCurrentLine().getSpeaker().get();
 
-			this.speaker = ContentRegistry.getDialogManager().getTalker(speakerPath).orElseThrow(() ->
-					new IllegalArgumentException("Couldn't getByte speaker: " + speakerPath));
+			this.talker = ContentRegistry.getDialogManager().getTalker(talkerPath).orElseThrow(() ->
+					new IllegalArgumentException("Couldn't getByte talker: " + talkerPath));
 
 			final String address;
 
-			// Check if the speaker resourcelocation has a slide address
-			if (speakerPath.getPath().contains("#"))
-			{
-				// Obtain the slide address from the Speaker resourcelocation
-				address = speakerPath.getPath().substring(speakerPath.getPath().indexOf("#") + 1);
+			// Check if the talker resourcelocation has a dialog address
+			if (talkerPath.getPath().contains("_")) {
+				// Obtain the dialog address from the Speaker resourcelocation
+				address = talkerPath.getPath().substring(talkerPath.getPath().indexOf("_") + 1);
 
-				this.slide = ContentRegistry.getDialogManager().findDialog(address, this.speaker).orElseThrow(() ->
-						new IllegalArgumentException("Couldn't find slide: " + address));
-			}
-			else if (this.speaker.getDialogs().isPresent())
-			{
-				final Map<String, IDialog> slides = this.speaker.getDialogs().get();
+				this.dialog = ContentRegistry.getDialogManager().findDialog(address, this.talker).orElseThrow(() ->
+						new IllegalArgumentException("Couldn't find dialog: " + address));
+			} else if (this.talker.getDialogs().isPresent()) {
+				final Map<String, IDialog> dialogs = this.talker.getDialogs().get();
 
-				if (!slides.isEmpty() && slides.containsKey("default"))
-				{
-					this.slide = slides.get("default");
+				if (!dialogs.isEmpty() && dialogs.containsKey("default")) {
+					this.dialog = dialogs.get("default");
 				}
 			}
 
-			if (this.slide != null && this.slide.getRenderer().isPresent())
-			{
-				final String renderType = this.slide.getRenderer().get();
+			if (this.dialog != null && this.dialog.getRenderer().isPresent()) {
+				final String renderType = this.dialog.getRenderer().get();
 
 				this.renderer = ContentRegistry.getDialogManager().findRenderer(renderType).orElseThrow(() ->
-						new IllegalArgumentException("Couldn't find slide renderer: " + renderType));
+						new IllegalArgumentException("Couldn't find dialog renderer: " + renderType));
 
-				this.renderer.setup(this.slide);
+				this.renderer.setup(this.dialog);
 			}
 
 			final boolean topText = this.controller.isNodeFinished() && this.controller.getCurrentNode().getButtons().size() > 0;
 
-			final String name = I18n.get(this.speaker.getUnlocalizedName());
 
-			final BaseComponent textComponent = new TranslatableComponent(name);
-
-			this.namePlate = this.addRenderableWidget(new Button(
-					this.buttons.size() + 2,
-					resize ? (this.width / 2) - (baseBoxSize / 2) : 20,
-					this.height - (topText ? 122 + this.bottomTextBox.getHeight() : 107),
-					20, textComponent, (button) -> {
-			}));
-			this.renderables.add(this.namePlate);
 		}
-
-		this.renderables.add(this.bottomTextBox);
 	}
 
 	private void resetGui()
@@ -224,15 +202,18 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 		this.renderables.clear();
 	}
 
-	private void nextAction()
-	{
-		if (!this.canApplyNextAction)
-		{
+	private void nextAction() {
+		if (!this.canApplyNextAction) {
 			this.canApplyNextAction = true;
 
 			return;
 		}
 
 		this.controller.advance();
+	}
+
+	@Override
+	public boolean isPauseScreen() {
+		return false;
 	}
 }

@@ -4,7 +4,7 @@
       "name": "start",
       "lines": [
         {
-          "talker": "moemobs:at2#idle",
+          "talker": "moemobs:at2",
           "text": "at2.greet.start_not_introduced"
         }
       ],

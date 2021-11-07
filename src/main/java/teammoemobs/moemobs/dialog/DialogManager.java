@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.ReloadableResourceManager;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
@@ -35,8 +34,7 @@ public class DialogManager implements IDialogManager {
 	private final boolean allowCaching;
 
 
-	public DialogManager(final boolean allowCaching)
-	{
+	public DialogManager(final boolean allowCaching) {
 		this.allowCaching = allowCaching;
 
 		this.gson = this.buildDeserializer().create();
@@ -59,33 +57,26 @@ public class DialogManager implements IDialogManager {
 		return builder;
 	}
 
-	protected void registerRenders()
-	{
+	protected void registerRenders() {
 		this.registeredRenders.put("static", new DialogRendererStatic());
 		this.registeredRenders.put("noop", new DialogRendererNOOP());
 	}
 
 	@Override
-	public Optional<IDialogTalker> getTalker(final ResourceLocation resource)
-	{
-		if (this.allowCaching && this.cachedTalkers.containsKey(resource))
-		{
+	public Optional<IDialogTalker> getTalker(final ResourceLocation resource) {
+		if (this.allowCaching && this.cachedTalkers.containsKey(resource)) {
 			return Optional.of(this.cachedTalkers.get(resource));
 		}
 
 		final IDialogTalker talker;
 
-		try
-		{
+		try {
 			talker = this.loadTalker(resource);
 
-			if (this.allowCaching)
-			{
+			if (this.allowCaching) {
 				this.cachedTalkers.put(resource, talker);
 			}
-		}
-		catch (final IOException e)
-		{
+		} catch (final IOException e) {
 			MoeMobs.LOGGER.error("Failed to load dialog talker: {}", resource, e);
 
 			return Optional.empty();
@@ -95,26 +86,20 @@ public class DialogManager implements IDialogManager {
 	}
 
 	@Override
-	public Optional<IDialogScene> getScene(final ResourceLocation resource)
-	{
-		if (this.allowCaching && this.cachedScenes.containsKey(resource))
-		{
+	public Optional<IDialogScene> getScene(final ResourceLocation resource) {
+		if (this.allowCaching && this.cachedScenes.containsKey(resource)) {
 			return Optional.of(this.cachedScenes.get(resource));
 		}
 
 		final IDialogScene scene;
 
-		try
-		{
+		try {
 			scene = this.loadScene(resource);
 
-			if (this.allowCaching)
-			{
+			if (this.allowCaching) {
 				this.cachedScenes.put(resource, scene);
 			}
-		}
-		catch (final IOException e)
-		{
+		} catch (final IOException e) {
 			MoeMobs.LOGGER.error("Failed to load dialog scene: {}", resource, e);
 
 			return Optional.empty();
@@ -136,33 +121,38 @@ public class DialogManager implements IDialogManager {
 
 		MoeMobs.LOGGER.info("Loading dialog talker from file {}", talkerPath);
 
-		try (InputStream stream = MinecraftServer.class.getResourceAsStream(talkerPath)) {
-			try (InputStreamReader reader = new InputStreamReader(stream)) {
-				return this.gson.fromJson(reader, DialogTalker.class);
+		try (InputStream stream = MoeMobs.class.getResourceAsStream(talkerPath)) {
+			if (stream != null) {
+				try (InputStreamReader reader = new InputStreamReader(stream)) {
+					return this.gson.fromJson(reader, DialogTalker.class);
+				}
+			} else {
+				MoeMobs.LOGGER.error("dialog talker loaded : {}", path);
+				return null;
 			}
 		}
 	}
 
-	private IDialogScene loadScene(final ResourceLocation resource) throws IOException
-	{
+	private IDialogScene loadScene(final ResourceLocation resource) throws IOException {
 		final String path = "/assets/" + resource.getNamespace() + "/mob_dialog/" + resource.getPath() + ".json";
 
 		MoeMobs.LOGGER.info("Loading dialog scene from file {}", path);
 
-		try (InputStream stream = MinecraftServer.class.getResourceAsStream(path))
-		{
-			try (InputStreamReader reader = new InputStreamReader(stream))
-			{
-				return this.gson.fromJson(reader, DialogSchema.class);
+		try (InputStream stream = MoeMobs.class.getResourceAsStream(path)) {
+			if (stream != null) {
+				try (InputStreamReader reader = new InputStreamReader(stream)) {
+					return this.gson.fromJson(reader, DialogSchema.class);
+				}
+			} else {
+				MoeMobs.LOGGER.error("dialog cannot loaded : {}", path);
+				return null;
 			}
 		}
 	}
 
 	@Override
-	public Optional<IDialog> findDialog(final String slideAddress, final IDialogTalker speaker)
-	{
-		if (speaker == null || slideAddress == null || !speaker.getDialogs().isPresent() || !speaker.getDialogs().get().containsKey(slideAddress))
-		{
+	public Optional<IDialog> findDialog(final String slideAddress, final IDialogTalker speaker) {
+		if (speaker == null || slideAddress == null || !speaker.getDialogs().isPresent() || !speaker.getDialogs().get().containsKey(slideAddress)) {
 			return Optional.empty();
 		}
 
@@ -170,10 +160,8 @@ public class DialogManager implements IDialogManager {
 	}
 
 	@Override
-	public Optional<IDialogRenderer> findRenderer(final String type)
-	{
-		if (type == null || !this.registeredRenders.containsKey(type))
-		{
+	public Optional<IDialogRenderer> findRenderer(final String type) {
+		if (type == null || !this.registeredRenders.containsKey(type)) {
 			return Optional.empty();
 		}
 
@@ -181,29 +169,24 @@ public class DialogManager implements IDialogManager {
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	public void attachReloadListener()
-	{
+	public void attachReloadListener() {
 		final ResourceManager resManager = Minecraft.getInstance().getResourceManager();
 
-		if (resManager instanceof ReloadableResourceManager)
-		{
+		if (resManager instanceof ReloadableResourceManager) {
 			((ReloadableResourceManager) resManager).registerReloadListener(new ReloadListener(this));
 		}
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	public static class ReloadListener implements ResourceManagerReloadListener
-	{
+	public static class ReloadListener implements ResourceManagerReloadListener {
 		private final DialogManager manager;
 
-		public ReloadListener(final DialogManager manager)
-		{
+		public ReloadListener(final DialogManager manager) {
 			this.manager = manager;
 		}
 
 		@Override
-		public void onResourceManagerReload(final ResourceManager resourceManager)
-		{
+		public void onResourceManagerReload(final ResourceManager resourceManager) {
 			this.manager.cachedScenes.clear();
 		}
 	}

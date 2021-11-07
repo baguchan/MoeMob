@@ -5,6 +5,7 @@ import teammoemobs.moemobs.api.dialog.IDialogNode;
 import teammoemobs.moemobs.api.dialog.IDialogScene;
 
 import java.util.Map;
+import java.util.UUID;
 
 public interface ISceneInstance {
 	IDialogScene getScene();
@@ -17,9 +18,9 @@ public interface ISceneInstance {
 
 	void forwards();
 
-	Map<String, Boolean> getConditionsMet();
+	Map<UUID, Boolean> getConditionsMet();
 
-	void setConditionsMet(Map<String, Boolean> conditionsMet);
+	void setConditionsMet(Map<UUID, Boolean> conditionsMet);
 
 	boolean isDoneReading();
 }

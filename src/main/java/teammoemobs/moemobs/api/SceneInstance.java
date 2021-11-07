@@ -1,15 +1,11 @@
 package teammoemobs.moemobs.api;
 
 import com.google.common.collect.Maps;
-import net.minecraft.world.entity.LivingEntity;
 import org.apache.commons.lang3.Validate;
 import teammoemobs.moemobs.api.dialog.*;
 import teammoemobs.moemobs.api.dialog.scene.ISceneInstance;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class SceneInstance implements ISceneInstance
 {
@@ -25,7 +21,7 @@ public class SceneInstance implements ISceneInstance
 
 	private Collection<IDialogAction> endActions;
 
-	private Map<String, Boolean> conditionsMet = Maps.newHashMap();
+	private Map<UUID, Boolean> conditionsMet = Maps.newHashMap();
 
 	private int index;
 
@@ -34,10 +30,8 @@ public class SceneInstance implements ISceneInstance
 		this(controller, scene, null);
 	}
 
-	protected SceneInstance(final TalkableController controller, final IDialogScene scene, Map<String, Boolean> conditionsMet)
-	{
-		if (conditionsMet != null)
-		{
+	protected SceneInstance(final TalkableController controller, final IDialogScene scene, Map<UUID, Boolean> conditionsMet) {
+		if (conditionsMet != null) {
 			this.conditionsMet = conditionsMet;
 		}
 
@@ -73,11 +67,11 @@ public class SceneInstance implements ISceneInstance
 
 		this.controller.updateListeners();
 
-		if (!this.controller.getLevel().isClientSide())
-		{
-			for (IDialogButton button : this.buttons)
-			{
-				this.conditionsMet.put(button.getLabel(), this.controller.conditionsMet(button));
+		if (!this.controller.getLevel().isClientSide()) {
+			for (IDialogButton button : this.buttons) {
+				if (controller.getTalkableMob().getTalkingUUID().isPresent()) {
+					this.conditionsMet.put(controller.getTalkableMob().getTalkingUUID().get(), this.controller.conditionsMet(button));
+				}
 			}
 
 			//Networking.sendPacketToPlayer(new PacketConditionsMetData(this.conditionsMet), (EntityPlayerMP) this.controller.getEntity());
@@ -85,14 +79,12 @@ public class SceneInstance implements ISceneInstance
 	}
 
 	@Override
-	public Map<String, Boolean> getConditionsMet()
-	{
+	public Map<UUID, Boolean> getConditionsMet() {
 		return this.conditionsMet;
 	}
 
 	@Override
-	public void setConditionsMet(Map<String, Boolean> map)
-	{
+	public void setConditionsMet(Map<UUID, Boolean> map) {
 		this.conditionsMet = map;
 	}
 

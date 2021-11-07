@@ -1,5 +1,8 @@
 package teammoemobs.moemobs.world.entity;
 
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -7,7 +10,9 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
-import net.minecraft.world.entity.ai.goal.*;
+import net.minecraft.world.entity.ai.goal.FloatGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
+import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -16,12 +21,23 @@ import teammoemobs.moemobs.MoeMobs;
 import teammoemobs.moemobs.api.TalkableController;
 import teammoemobs.moemobs.api.entity.TalkableMob;
 
+import java.util.Optional;
+import java.util.UUID;
+
 public class At2 extends PathfinderMob implements TalkableMob {
+	private static final EntityDataAccessor<Optional<UUID>> DATA_TALKED_FLAGS_ID = SynchedEntityData.defineId(At2.class, EntityDataSerializers.OPTIONAL_UUID);
 	private final TalkableController talkableController;
 
 	public At2(EntityType<? extends At2> p_21683_, Level p_21684_) {
 		super(p_21683_, p_21684_);
 		this.talkableController = new TalkableController(this);
+		this.talkableController.setLevel(level);
+	}
+
+	@Override
+	protected void defineSynchedData() {
+		super.defineSynchedData();
+		this.entityData.define(DATA_TALKED_FLAGS_ID, Optional.empty());
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -32,16 +48,13 @@ public class At2 extends PathfinderMob implements TalkableMob {
 	public InteractionResult mobInteract(Player p_27584_, InteractionHand p_27585_) {
 		ItemStack itemstack = p_27584_.getItemInHand(p_27585_);
 		boolean flag = super.mobInteract(p_27584_, p_27585_) == InteractionResult.PASS;
-		if (flag)
-		{
-			if (!p_27584_.level.isClientSide()) {
-				this.setTalkingEntity(this);
-				String node = "start";
+		if (flag) {
+			this.setTalkingEntity(p_27584_);
+			String node = "start";
 
-				this.getTalkableController().openScene(p_27584_, this, new ResourceLocation(MoeMobs.MODID, "at2/new_comer"), node);
-				this.gameEvent(GameEvent.MOB_INTERACT, this.eyeBlockPosition());
-				return InteractionResult.SUCCESS;
-			}
+			this.getTalkableController().openScene(p_27584_, this, new ResourceLocation(MoeMobs.MODID, "at2/new_comer"), node);
+			this.gameEvent(GameEvent.MOB_INTERACT, this.eyeBlockPosition());
+			return InteractionResult.SUCCESS;
 		}
 
 		return InteractionResult.FAIL;
@@ -67,7 +80,12 @@ public class At2 extends PathfinderMob implements TalkableMob {
 	}
 
 	@Override
-	public void setTalkingEntity(At2 at2) {
+	public void setTalkingEntity(Player player) {
+		this.entityData.set(DATA_TALKED_FLAGS_ID, this.getTalkingUUID());
+	}
 
+	@Override
+	public Optional<UUID> getTalkingUUID() {
+		return this.entityData.get(DATA_TALKED_FLAGS_ID);
 	}
 }

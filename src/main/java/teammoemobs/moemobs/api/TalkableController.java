@@ -1,8 +1,8 @@
 package teammoemobs.moemobs.api;
 
-import com.google.common.collect.Lists;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -12,29 +12,29 @@ import net.minecraftforge.fmllegacy.network.PacketDistributor;
 import org.apache.commons.lang3.Validate;
 import teammoemobs.moemobs.MoeMobs;
 import teammoemobs.moemobs.api.dialog.*;
+import teammoemobs.moemobs.api.dialog.scene.ISceneInstance;
 import teammoemobs.moemobs.api.entity.NormalTalker;
 import teammoemobs.moemobs.api.entity.TalkableMob;
-import teammoemobs.moemobs.api.dialog.scene.ISceneInstance;
 import teammoemobs.moemobs.client.screen.MoeMobDialogScreen;
 import teammoemobs.moemobs.message.OpenDialogMessage;
 import teammoemobs.moemobs.register.ContentRegistry;
 
+import javax.annotation.Nullable;
 import java.util.*;
 
 public class TalkableController implements NormalTalker {
 	private ISceneInstance sceneInstance;
 	private final Set<IDialogChangeListener> listeners = new HashSet<>();
-	private Map<String, Boolean> conditionsMet;
+	private Map<UUID, Boolean> conditionsMet;
+	private Level level;
 
 	protected final TalkableMob talkableMob;
 
-	public TalkableController(TalkableMob talkableMob)
-	{
+	public TalkableController(TalkableMob talkableMob) {
 		this.talkableMob = talkableMob;
 	}
 
-	public void activateButton(final IDialogButton button)
-	{
+	public void activateButton(final IDialogButton button) {
 		if(talkableMob instanceof LivingEntity) {
 			// Make sure this node actually contains the button
 			Validate.isTrue(this.sceneInstance.getNode().getButtons().contains(button));
@@ -67,11 +67,11 @@ public class TalkableController implements NormalTalker {
 					throw new NullPointerException("Scene instance is null in activateButton()");
 				}
 
-				if (!this.sceneInstance.getConditionsMet().containsKey(button.getLabel())) {
+				if (!this.sceneInstance.getConditionsMet().containsKey(((LivingEntity) talkableMob).getUUID())) {
 					return false;
 				}
 
-				return this.sceneInstance.getConditionsMet().get(button.getLabel());
+				return this.sceneInstance.getConditionsMet().get(((LivingEntity) talkableMob).getUUID());
 			}
 		}
 
@@ -178,10 +178,9 @@ public class TalkableController implements NormalTalker {
 
 		this.updateListeners();
 	}
-	
+
 	@OnlyIn(Dist.CLIENT)
-	private void openSceneClient(Player player, TalkableMob livingEntity, final ResourceLocation res, final IDialogScene scene, Map<String, Boolean> conditionsMet)
-	{
+	private void openSceneClient(Player player, TalkableMob livingEntity, final ResourceLocation res, final IDialogScene scene, Map<UUID, Boolean> conditionsMet) {
 		this.sceneInstance = new SceneInstance(this, scene, conditionsMet);
 
 		Minecraft.getInstance().setScreen(new MoeMobDialogScreen(player, livingEntity));
@@ -193,7 +192,7 @@ public class TalkableController implements NormalTalker {
 
 		if(livingEntity instanceof LivingEntity) {
 			OpenDialogMessage message = new OpenDialogMessage(player.getId(), ((LivingEntity) livingEntity).getId(), res, scene.getStartingNode().getIdentifier(), this.sceneInstance.getConditionsMet());
-			MoeMobs.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player), message);
+			MoeMobs.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> (Entity) livingEntity), message);
 		}
 	}
 
@@ -213,21 +212,27 @@ public class TalkableController implements NormalTalker {
 		return talkableMob;
 	}
 
+	@Nullable
 	public Level getLevel() {
-		return talkableMob.getTalkableController().getLevel();
+		return level;
+	}
+
+	public void setLevel(Level level) {
+		this.level = level;
 	}
 
 	public ISceneInstance getSceneInstance() {
 		return sceneInstance;
 	}
 
+	/*
+	 * This method use player already met
+	 */
 	@Override
-	public void setConditionsMetData(Map<String, Boolean> conditionsMet)
-	{
+	public void setConditionsMetData(Map<UUID, Boolean> conditionsMet) {
 		this.conditionsMet = conditionsMet;
 
-		if (this.sceneInstance != null)
-		{
+		if (this.sceneInstance != null) {
 			this.sceneInstance.setConditionsMet(conditionsMet);
 		}
 	}

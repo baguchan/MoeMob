@@ -34,7 +34,6 @@ public class MoeMobs
             .simpleChannel();
 
     public MoeMobs() {
-        this.setupMessages();
         // Register the setup method for modloading
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
         // Register the enqueueIMC method for modloading
@@ -55,7 +54,7 @@ public class MoeMobs
 
     private void setup(final FMLCommonSetupEvent event)
     {
-
+        this.setupMessages();
     }
 
     private void enqueueIMC(final InterModEnqueueEvent event)
