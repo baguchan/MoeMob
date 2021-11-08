@@ -1,12 +1,11 @@
 package teammoemobs.moemobs.client.screen;
 
-import com.google.common.collect.Lists;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.chat.NarratorChatListener;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.BaseComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -18,15 +17,12 @@ import teammoemobs.moemobs.client.screen.button.DialogButton;
 import teammoemobs.moemobs.register.ContentRegistry;
 
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.Map;
 
 public class MoeMobDialogScreen extends Screen implements IDialogChangeListener {
 	public static boolean preventDialogControllerClose;
 
 	private final TalkableController controller;
-
-	private final LinkedList<Object> buttons = Lists.newLinkedList();
 
 	private double nextArrowAnim, prevTime;
 
@@ -40,7 +36,6 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 
 	private IDialogRenderer renderer;
 
-	private int currentScroll, maxScroll;
 
 	private ISceneInstance sceneInstance;
 
@@ -76,7 +71,7 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 
 		final String name = I18n.get(this.talker.getUnlocalizedName());
 
-		final BaseComponent textComponent = new TranslatableComponent(name);
+		final TranslatableComponent textComponent = new TranslatableComponent(name);
 
 		this.font.draw(poseStack, textComponent, resize ? (this.width / 2) - (baseBoxSize / 2) : 20,
 				this.height - (107), 0xFAEB95);
@@ -84,7 +79,9 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 		final IDialogLine line = this.controller.getCurrentLine();
 
 
-		this.font.draw(poseStack, line.getLocalizedBody(), resize ? (this.width / 2) - (baseBoxSize / 2) : 20, this.height - 85, 0xFFFFFF);
+		final TranslatableComponent textComponent2 = new TranslatableComponent(((TranslatableComponent) line.getLocalizedBody()).getKey(), Minecraft.getInstance().getUser().getName());
+
+		this.font.draw(poseStack, textComponent2, resize ? (this.width / 2) - (baseBoxSize / 2) : 20, this.height - 85, 0xFFFFFF);
 
 		super.render(poseStack, p_96563_, p_96564_, p_96565_);
 	}
@@ -123,32 +120,22 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 
 		if (this.controller.isNodeFinished())
 		{
-			this.buttons.clear();
-
 			int index = 0;
 
 			for (final IDialogButton btn : beforeConditionButtons)
 			{
-				if (this.controller.conditionsMet(btn))
-				{
-					Button button = new DialogButton((this.width / 2) - (baseBoxSize / 2), this.height + 85 + (index * 20), 200, 20, btn, (button2) -> {
+				if (this.controller.conditionsMet(btn)) {
+					Button button = new DialogButton((this.width / 2) - (baseBoxSize / 2), this.height - 65 + (index * 20), 200, 20, btn, (button2) -> {
 						this.controller.activateButton(btn);
 					});
 
-					button.visible = false;
-
-					this.renderables.add(button);
-					this.buttons.add(button);
+					this.addRenderableWidget(button);
+					button.visible = true;
 
 					index++;
 				}
 			}
 		}
-
-		this.currentScroll = 0;
-
-		this.maxScroll = Math.max(0, this.buttons.size() - 4);
-
 
 		/*if (this.controller.isNodeFinished() && this.controller.getCurrentNode().getButtons().size() > 0)
 		{
@@ -199,7 +186,7 @@ public class MoeMobDialogScreen extends Screen implements IDialogChangeListener 
 
 	private void resetGui()
 	{
-		this.renderables.clear();
+		this.clearWidgets();
 	}
 
 	private void nextAction() {

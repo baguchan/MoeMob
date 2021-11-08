@@ -5,9 +5,6 @@ import teammoemobs.moemobs.api.dialog.IDialogChangeListener;
 import teammoemobs.moemobs.api.dialog.IDialogScene;
 import teammoemobs.moemobs.api.dialog.scene.ISceneInstance;
 
-import java.util.Map;
-import java.util.UUID;
-
 public interface NormalTalker {
 	IDialogScene getCurrentScene();
 
@@ -17,6 +14,4 @@ public interface NormalTalker {
 	void addListener(IDialogChangeListener listener);
 
 	ResourceLocation getTalker();
-
-	void setConditionsMetData(Map<UUID, Boolean> conditionsMet);
 }

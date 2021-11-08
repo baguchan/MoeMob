@@ -2,30 +2,27 @@ package teammoemobs.moemobs.api;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fmllegacy.network.PacketDistributor;
 import org.apache.commons.lang3.Validate;
-import teammoemobs.moemobs.MoeMobs;
 import teammoemobs.moemobs.api.dialog.*;
 import teammoemobs.moemobs.api.dialog.scene.ISceneInstance;
 import teammoemobs.moemobs.api.entity.NormalTalker;
 import teammoemobs.moemobs.api.entity.TalkableMob;
 import teammoemobs.moemobs.client.screen.MoeMobDialogScreen;
-import teammoemobs.moemobs.message.OpenDialogMessage;
 import teammoemobs.moemobs.register.ContentRegistry;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 public class TalkableController implements NormalTalker {
 	private ISceneInstance sceneInstance;
 	private final Set<IDialogChangeListener> listeners = new HashSet<>();
-	private Map<UUID, Boolean> conditionsMet;
 	private Level level;
 
 	protected final TalkableMob talkableMob;
@@ -41,6 +38,12 @@ public class TalkableController implements NormalTalker {
 
 			if (((LivingEntity) talkableMob).level.isClientSide()) {
 				//Networking.sendPacketToServer(new PacketActivateButton(button.getLabel()));
+
+				final Collection<IDialogAction> actions = button.getActions();
+
+				for (final IDialogAction action : actions) {
+					action.performAction(this);
+				}
 			}
 
 			if (!this.conditionsMet(button)) {
@@ -61,19 +64,23 @@ public class TalkableController implements NormalTalker {
 
 	public boolean conditionsMet(IDialogButton button)
 	{
-		if(talkableMob instanceof LivingEntity) {
+		/*if(talkableMob instanceof LivingEntity) {
 			if (((LivingEntity) talkableMob).level.isClientSide()) {
 				if (this.sceneInstance == null) {
 					throw new NullPointerException("Scene instance is null in activateButton()");
 				}
 
-				if (!this.sceneInstance.getConditionsMet().containsKey(((LivingEntity) talkableMob).getUUID())) {
+				if(this.talkableMob.getTalkingUUID().isEmpty()){
 					return false;
 				}
 
-				return this.sceneInstance.getConditionsMet().get(((LivingEntity) talkableMob).getUUID());
+				if (!this.sceneInstance.getConditionsMet().containsKey(button.getLabel())) {
+					return false;
+				}
+
+				return this.sceneInstance.getConditionsMet().get(button.getLabel()) == this.talkableMob.getTalkingUUID().get();
 			}
-		}
+		}*/
 
 		boolean flag = false;
 
@@ -112,9 +119,11 @@ public class TalkableController implements NormalTalker {
 
 	public void advance()
 	{
-		if (this.getLevel().isClientSide())
-		{
+		if (this.getLevel().isClientSide()) {
 			//Networking.sendPacketToServer(new PacketAdvance());
+			if (this.sceneInstance != null) {
+				this.sceneInstance.forwards();
+			}
 		}
 		else
 		{
@@ -167,12 +176,9 @@ public class TalkableController implements NormalTalker {
 
 		scene.setStartingNode(startingNodeId);
 
-		if (player.level.isClientSide())
-		{
-			this.openSceneClient(player, livingEntity, path, scene, this.conditionsMet);
-		}
-		else
-		{
+		if (player.level.isClientSide()) {
+			this.openSceneClient(player, livingEntity, path, scene);
+		} else if (!player.level.isClientSide()) {
 			this.openSceneServer(player, livingEntity, path, scene);
 		}
 
@@ -180,8 +186,8 @@ public class TalkableController implements NormalTalker {
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	private void openSceneClient(Player player, TalkableMob livingEntity, final ResourceLocation res, final IDialogScene scene, Map<UUID, Boolean> conditionsMet) {
-		this.sceneInstance = new SceneInstance(this, scene, conditionsMet);
+	private void openSceneClient(Player player, TalkableMob livingEntity, final ResourceLocation res, final IDialogScene scene) {
+		this.sceneInstance = new SceneInstance(this, scene);
 
 		Minecraft.getInstance().setScreen(new MoeMobDialogScreen(player, livingEntity));
 	}
@@ -190,10 +196,10 @@ public class TalkableController implements NormalTalker {
 	{
 		this.sceneInstance = new SceneInstance(this, scene);
 
-		if(livingEntity instanceof LivingEntity) {
+		/*if(livingEntity instanceof LivingEntity) {
 			OpenDialogMessage message = new OpenDialogMessage(player.getId(), ((LivingEntity) livingEntity).getId(), res, scene.getStartingNode().getIdentifier(), this.sceneInstance.getConditionsMet());
 			MoeMobs.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> (Entity) livingEntity), message);
-		}
+		}*/
 	}
 
 	@Override
@@ -223,17 +229,5 @@ public class TalkableController implements NormalTalker {
 
 	public ISceneInstance getSceneInstance() {
 		return sceneInstance;
-	}
-
-	/*
-	 * This method use player already met
-	 */
-	@Override
-	public void setConditionsMetData(Map<UUID, Boolean> conditionsMet) {
-		this.conditionsMet = conditionsMet;
-
-		if (this.sceneInstance != null) {
-			this.sceneInstance.setConditionsMet(conditionsMet);
-		}
 	}
 }

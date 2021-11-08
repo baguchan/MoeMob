@@ -59,7 +59,7 @@ public class OpenDialogMessage {
 				Entity entity = Minecraft.getInstance().player.level.getEntity(message.entityId);
 				Entity ownerEntity = Minecraft.getInstance().player.level.getEntity(message.ownerID);
 				if (entity != null && entity instanceof Player && ownerEntity != null && ownerEntity instanceof TalkableMob) {
-					((TalkableMob) ownerEntity).getTalkableController().setConditionsMetData(message.conditionsMet);
+					//((TalkableMob) ownerEntity).getTalkableController().setConditionsMetData(message.conditionsMet);
 					((TalkableMob) ownerEntity).getTalkableController().openScene(((Player) entity), (TalkableMob) ownerEntity, message.name, message.startingNodeId);
 				}
 			});

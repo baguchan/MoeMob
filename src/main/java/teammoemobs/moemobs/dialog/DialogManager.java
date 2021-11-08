@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ReloadableResourceManager;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraftforge.api.distmarker.Dist;
@@ -12,15 +13,18 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import teammoemobs.moemobs.MoeMobs;
 import teammoemobs.moemobs.api.dialog.*;
 import teammoemobs.moemobs.dialog.data.DialogActionDeserializer;
+import teammoemobs.moemobs.dialog.data.DialogConditionDeserializer;
 import teammoemobs.moemobs.dialog.data.DialogDeserializer;
 import teammoemobs.moemobs.dialog.data.DialogRendererDeserializer;
 import teammoemobs.moemobs.dialog.data.actions.DialogActionExit;
+import teammoemobs.moemobs.dialog.data.condition.DialogConditionLove;
 import teammoemobs.moemobs.dialog.data.render.DialogRendererNOOP;
 import teammoemobs.moemobs.dialog.data.render.DialogRendererStatic;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Optional;
 
@@ -45,10 +49,11 @@ public class DialogManager implements IDialogManager {
 		final GsonBuilder builder = new GsonBuilder();
 
 		builder.registerTypeAdapter(IDialogAction.class, new DialogActionDeserializer());
-		//builder.registerTypeAdapter(IDialogCondition.class, new DialogConditionDeserializer());
+		builder.registerTypeAdapter(IDialogCondition.class, new DialogConditionDeserializer());
 
 		builder.registerTypeAdapter(DialogActionExit.class, new DialogActionExit.Deserializer());
 
+		builder.registerTypeAdapter(DialogConditionLove.class, new DialogConditionLove.Deserializer());
 
 		builder.registerTypeAdapter(IDialogRenderer.class, new DialogRendererDeserializer());
 		builder.registerTypeAdapter(DialogRendererStatic.class, new DialogRendererStatic.Deserializer());
@@ -113,40 +118,34 @@ public class DialogManager implements IDialogManager {
 		final String path = resource.getPath();
 		String pathWithoutSlide = path;
 
-		if (path.contains("#")) {
-			pathWithoutSlide = path.replace(path.substring(path.indexOf("#")), "");
+		if (path.contains("_")) {
+			pathWithoutSlide = path.replace(path.substring(path.indexOf("_")), "");
 		}
 
-		final String talkerPath = "/assets/" + resource.getNamespace() + "/mob_dialog/talkers/" + pathWithoutSlide + ".json";
+		final String talkerPath = "/mob_dialog/talkers/" + pathWithoutSlide + ".json";
 
-		MoeMobs.LOGGER.info("Loading dialog talker from file {}", talkerPath);
+		MoeMobs.LOGGER.info("Loading dialog talker from file {}", resource.getNamespace() + ":" + talkerPath);
 
-		try (InputStream stream = MoeMobs.class.getResourceAsStream(talkerPath)) {
-			if (stream != null) {
-				try (InputStreamReader reader = new InputStreamReader(stream)) {
-					return this.gson.fromJson(reader, DialogTalker.class);
-				}
-			} else {
-				MoeMobs.LOGGER.error("dialog talker loaded : {}", path);
-				return null;
-			}
+		Resource rawResource = Minecraft.getInstance().getResourceManager().getResource(new ResourceLocation(resource.getNamespace(), talkerPath));
+
+		InputStream inputstream = rawResource.getInputStream();
+
+		try (InputStreamReader reader = new InputStreamReader(inputstream, StandardCharsets.UTF_8)) {
+			return this.gson.fromJson(reader, DialogTalker.class);
 		}
 	}
 
 	private IDialogScene loadScene(final ResourceLocation resource) throws IOException {
-		final String path = "/assets/" + resource.getNamespace() + "/mob_dialog/" + resource.getPath() + ".json";
+		final String path = "/mob_dialog/" + resource.getPath() + ".json";
 
-		MoeMobs.LOGGER.info("Loading dialog scene from file {}", path);
+		MoeMobs.LOGGER.info("Loading dialog scene from file {}", resource.getNamespace() + ":" + path);
 
-		try (InputStream stream = MoeMobs.class.getResourceAsStream(path)) {
-			if (stream != null) {
-				try (InputStreamReader reader = new InputStreamReader(stream)) {
-					return this.gson.fromJson(reader, DialogSchema.class);
-				}
-			} else {
-				MoeMobs.LOGGER.error("dialog cannot loaded : {}", path);
-				return null;
-			}
+		Resource rawResource = Minecraft.getInstance().getResourceManager().getResource(new ResourceLocation(resource.getNamespace(), path));
+
+		InputStream inputstream = rawResource.getInputStream();
+
+		try (InputStreamReader reader = new InputStreamReader(inputstream, StandardCharsets.UTF_8)) {
+			return this.gson.fromJson(reader, DialogSchema.class);
 		}
 	}
 

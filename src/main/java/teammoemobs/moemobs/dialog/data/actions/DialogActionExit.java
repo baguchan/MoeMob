@@ -4,6 +4,7 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
+import net.minecraft.client.Minecraft;
 import teammoemobs.moemobs.api.TalkableController;
 import teammoemobs.moemobs.api.dialog.IDialogAction;
 
@@ -17,6 +18,7 @@ public class DialogActionExit implements IDialogAction {
 	@Override
 	public void performAction(TalkableController controller)
 	{
+		Minecraft.getInstance().setScreen(null);
 	}
 
 	public static class Deserializer implements JsonDeserializer<DialogActionExit>

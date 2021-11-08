@@ -1,11 +1,12 @@
 package teammoemobs.moemobs.api;
 
-import com.google.common.collect.Maps;
 import org.apache.commons.lang3.Validate;
 import teammoemobs.moemobs.api.dialog.*;
 import teammoemobs.moemobs.api.dialog.scene.ISceneInstance;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 public class SceneInstance implements ISceneInstance
 {
@@ -21,19 +22,10 @@ public class SceneInstance implements ISceneInstance
 
 	private Collection<IDialogAction> endActions;
 
-	private Map<UUID, Boolean> conditionsMet = Maps.newHashMap();
-
 	private int index;
 
-	protected SceneInstance(final TalkableController controller, final IDialogScene scene)
-	{
-		this(controller, scene, null);
-	}
 
-	protected SceneInstance(final TalkableController controller, final IDialogScene scene, Map<UUID, Boolean> conditionsMet) {
-		if (conditionsMet != null) {
-			this.conditionsMet = conditionsMet;
-		}
+	protected SceneInstance(final TalkableController controller, final IDialogScene scene) {
 
 		this.controller = controller;
 		this.scene = scene;
@@ -66,27 +58,8 @@ public class SceneInstance implements ISceneInstance
 		this.index = 0;
 
 		this.controller.updateListeners();
-
-		if (!this.controller.getLevel().isClientSide()) {
-			for (IDialogButton button : this.buttons) {
-				if (controller.getTalkableMob().getTalkingUUID().isPresent()) {
-					this.conditionsMet.put(controller.getTalkableMob().getTalkingUUID().get(), this.controller.conditionsMet(button));
-				}
-			}
-
-			//Networking.sendPacketToPlayer(new PacketConditionsMetData(this.conditionsMet), (EntityPlayerMP) this.controller.getEntity());
-		}
 	}
 
-	@Override
-	public Map<UUID, Boolean> getConditionsMet() {
-		return this.conditionsMet;
-	}
-
-	@Override
-	public void setConditionsMet(Map<UUID, Boolean> map) {
-		this.conditionsMet = map;
-	}
 
 	@Override
 	public IDialogLine getLine()
